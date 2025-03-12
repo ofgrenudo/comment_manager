@@ -4,18 +4,24 @@ use uuid::Uuid;
 
 use crate::Comment;
 
-/// Returns all comments with the newest on top.
+/// This function returns a Vector array of all Comments, sorted by the database, in descending order.
 pub fn get_all_comments() -> Vec<Comment> {
     let mut comments: Vec<Comment> = vec![];
+
+    // coonect to database
+    // TODO: allow for you to initialzie the database in the lib.rs file. also allow for you to customzie the database file / location. 
+    // TODO: allow for you to use sqlite, postgres, or mysql.
     let connection = sqlite::open("comments.db").unwrap();
-    
+
     // Note we had to split up the blow two statements. For some reason, the statement.next() function later down the program would not pull comments when we ran the CREATE TABLE command.
     // Maybe its because I didnt do the format!() like i did in the new comment function???
     // The compiler is angry here, i know. Ill fix it all later, but for now it looks aesthetically pleasing uwu.
-    
+
+    // prebuilt query
     let query = "SELECT * FROM comments ORDER BY timestamp DESC;";
     let mut statement = connection.prepare(query).unwrap();
 
+    // Iterate for each row returned by database.
     while let Ok(State::Row) = statement.next() {
         let temp_id = statement.read::<String, _>("id").unwrap();
         let id: Uuid = Uuid::parse_str(&temp_id).unwrap();
@@ -26,8 +32,8 @@ pub fn get_all_comments() -> Vec<Comment> {
             username: statement.read::<String, _>("username").unwrap().to_string(),
             comment: statement.read::<String, _>("comment").unwrap().to_string(),
             timestamp: statement.read::<String, _>("timestamp").unwrap(),
-            visible: statement.read::<i64, _>("visible").unwrap(),     
-            post_url: statement.read::<String, _>("post_url").unwrap().to_string()                  
+            visible: statement.read::<i64, _>("visible").unwrap(),
+            post_url: statement.read::<String, _>("post_url").unwrap().to_string(),
         });
     }
 
@@ -38,11 +44,11 @@ pub fn get_all_comments() -> Vec<Comment> {
 pub fn get_latest() -> Vec<Comment> {
     let mut comments: Vec<Comment> = vec![];
     let connection = sqlite::open("comments.db").unwrap();
-    
+
     // Note we had to split up the blow two statements. For some reason, the statement.next() function later down the program would not pull comments when we ran the CREATE TABLE command.
     // Maybe its because I didnt do the format!() like i did in the new comment function???
     // The compiler is angry here, i know. Ill fix it all later, but for now it looks aesthetically pleasing uwu.
-    
+
     let query = "SELECT * FROM comments ORDER BY timestamp DESC LIMIT 50;";
     let mut statement = connection.prepare(query).unwrap();
 
@@ -56,8 +62,10 @@ pub fn get_latest() -> Vec<Comment> {
             username: statement.read::<String, _>("username").unwrap().to_string(),
             comment: statement.read::<String, _>("comment").unwrap().to_string(),
             timestamp: statement.read::<String, _>("timestamp").unwrap(),
-            visible: statement.read::<i64, _>("visible").unwrap(), 
-            post_url: statement.read::<String, _>("post_url").unwrap_or("null".to_string())           
+            visible: statement.read::<i64, _>("visible").unwrap(),
+            post_url: statement
+                .read::<String, _>("post_url")
+                .unwrap_or("null".to_string()),
         });
     }
 
@@ -72,7 +80,7 @@ pub fn get_one_by_id(id: String) -> Vec<Comment> {
     // Note we had to split up the blow two statements. For some reason, the statement.next() function later down the program would not pull comments when we ran the CREATE TABLE command.
     // Maybe its because I didnt do the format!() like i did in the new comment function???
     // The compiler is angry here, i know. Ill fix it all later, but for now it looks aesthetically pleasing uwu.
-    
+
     let query = format!("SELECT * FROM comments WHERE id = '{}'", &filtered_id);
     let mut statement = connection.prepare(query).unwrap();
 
@@ -86,13 +94,12 @@ pub fn get_one_by_id(id: String) -> Vec<Comment> {
             username: statement.read::<String, _>("username").unwrap().to_string(),
             comment: statement.read::<String, _>("comment").unwrap().to_string(),
             timestamp: statement.read::<String, _>("timestamp").unwrap(),
-            visible: statement.read::<i64, _>("visible").unwrap(),       
+            visible: statement.read::<i64, _>("visible").unwrap(),
             post_url: statement.read::<String, _>("post_url").unwrap().to_string(),
         });
     }
 
     comments
-
 }
 
 /// Returns all comments with a matching IP address.
@@ -100,12 +107,15 @@ pub fn get_all_by_ip(ip: String) -> Vec<Comment> {
     let mut comments: Vec<Comment> = vec![];
     let connection = sqlite::open("comments.db").unwrap();
     let filtered_ip = ip.replace(&['(', ')', ',', '\"', '.', ';', ':', '\''][..], "");
-    
+
     // Note we had to split up the blow two statements. For some reason, the statement.next() function later down the program would not pull comments when we ran the CREATE TABLE command.
     // Maybe its because I didnt do the format!() like i did in the new comment function???
     // The compiler is angry here, i know. Ill fix it all later, but for now it looks aesthetically pleasing uwu.
-    
-    let query = format!("SELECT * FROM comments WHERE ip = '{}'", digest(filtered_ip));
+
+    let query = format!(
+        "SELECT * FROM comments WHERE ip = '{}'",
+        digest(filtered_ip)
+    );
     let mut statement = connection.prepare(query).unwrap();
 
     while let Ok(State::Row) = statement.next() {
@@ -118,8 +128,8 @@ pub fn get_all_by_ip(ip: String) -> Vec<Comment> {
             username: statement.read::<String, _>("username").unwrap().to_string(),
             comment: statement.read::<String, _>("comment").unwrap().to_string(),
             timestamp: statement.read::<String, _>("timestamp").unwrap(),
-            visible: statement.read::<i64, _>("visible").unwrap(),            
-            post_url: statement.read::<String, _>("post_url").unwrap().to_string()           
+            visible: statement.read::<i64, _>("visible").unwrap(),
+            post_url: statement.read::<String, _>("post_url").unwrap().to_string(),
         });
     }
 
@@ -132,12 +142,14 @@ pub fn get_all_by_username(username: String) -> Vec<Comment> {
     let connection = sqlite::open("comments.db").unwrap();
     let filtered_username = username.replace(&['(', ')', ',', '\"', '.', ';', ':', '\''][..], "");
 
-    
     // Note we had to split up the blow two statements. For some reason, the statement.next() function later down the program would not pull comments when we ran the CREATE TABLE command.
     // Maybe its because I didnt do the format!() like i did in the new comment function???
     // The compiler is angry here, i know. Ill fix it all later, but for now it looks aesthetically pleasing uwu.
-    
-    let query = format!("SELECT * FROM comments WHERE username = '{}'", filtered_username);
+
+    let query = format!(
+        "SELECT * FROM comments WHERE username = '{}'",
+        filtered_username
+    );
     let mut statement = connection.prepare(query).unwrap();
 
     while let Ok(State::Row) = statement.next() {
@@ -150,8 +162,8 @@ pub fn get_all_by_username(username: String) -> Vec<Comment> {
             username: statement.read::<String, _>("username").unwrap().to_string(),
             comment: statement.read::<String, _>("comment").unwrap().to_string(),
             timestamp: statement.read::<String, _>("timestamp").unwrap(),
-            visible: statement.read::<i64, _>("visible").unwrap(),            
-            post_url: statement.read::<String, _>("post_url").unwrap().to_string()           
+            visible: statement.read::<i64, _>("visible").unwrap(),
+            post_url: statement.read::<String, _>("post_url").unwrap().to_string(),
         });
     }
 
@@ -164,12 +176,14 @@ pub fn get_all_on_post(post_url: String) -> Vec<Comment> {
     let connection = sqlite::open("comments.db").unwrap();
     let filtered_url = post_url.replace(&['(', ')', ',', '\"', '.', ';', ':', '\''][..], "");
 
-    
     // Note we had to split up the blow two statements. For some reason, the statement.next() function later down the program would not pull comments when we ran the CREATE TABLE command.
     // Maybe its because I didnt do the format!() like i did in the new comment function???
     // The compiler is angry here, i know. Ill fix it all later, but for now it looks aesthetically pleasing uwu.
-    
-    let query = format!("SELECT * FROM comments WHERE post_url  = '{}'", filtered_url);
+
+    let query = format!(
+        "SELECT * FROM comments WHERE post_url  = '{}'",
+        filtered_url
+    );
     let mut statement = connection.prepare(query).unwrap();
 
     while let Ok(State::Row) = statement.next() {
@@ -182,8 +196,8 @@ pub fn get_all_on_post(post_url: String) -> Vec<Comment> {
             username: statement.read::<String, _>("username").unwrap().to_string(),
             comment: statement.read::<String, _>("comment").unwrap().to_string(),
             timestamp: statement.read::<String, _>("timestamp").unwrap(),
-            visible: statement.read::<i64, _>("visible").unwrap(),            
-            post_url: statement.read::<String, _>("post_url").unwrap().to_string()           
+            visible: statement.read::<i64, _>("visible").unwrap(),
+            post_url: statement.read::<String, _>("post_url").unwrap().to_string(),
         });
     }
 
