@@ -1,26 +1,17 @@
+
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
+use async_trait::async_trait;
+use std::error::Error;
 use uuid::Uuid;
 pub mod get;
 pub mod new;
+mod sqlite;
 
 // TODO: publish on on crates.io
 // TODO: implement traits on the "connection" so that we can interface with sqlite, postgrees, and mysql.
 
 
-/// # Comment
-///
-/// Comment is the data type that we store in our sqlite3 database. It consists of the following
-///
-/// - id
-/// - ip
-/// - username
-/// - comment
-/// - timestamp
-/// - visible
-///
-/// The ID and Timestamp are automatically generated. The ID is generated using a UUID V4 format (essentially completly random). The timestamp is in UTC time, cuz we are cool. The username, and comment and IP are user supplied. Typically though, the IP is sourced from the client, weather that is a proxy or actix.
-///  
 #[derive(Debug)] 
 pub struct Comment {
     pub id: Uuid,
@@ -32,12 +23,6 @@ pub struct Comment {
     pub post_url: String,
 }
 
-
-
-
-
-/// ## Comment Serialization
-/// The serialization for the Comment struct would work... if I didnt have used a UUID for the ID field. Either way, its not hard for me to implement the serialization for the UUID type, all we are doing is just calling to .to_string() method.
 impl Serialize for Comment {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -72,18 +57,20 @@ pub enum CommentResult<Comment, CommentError> {
     Err(CommentError),
 }
 
-// TODO: depreceate this please?.
-/// Depreciated, please use cmanager::new::comment;
-///
-/// Takes 3 inputs, IP (String), Username (String), and Comment (String). It will return to you a Result, Ok(Comment) or Err(CommentError).
-pub fn new(ip: String, username: String, comment: String) -> Result<Comment, CommentError> {
-    new::comment(ip, username, comment) // Look at that sexy refactoring, where I keep the origional API alive :) 
-}
 
-// TODO: depreceate this please?.
-/// Soon to be Depreciated.
-///
-/// This function will return all contents up to 50 rows (not really all, which is why we are migrating to a new api endpoint).
-pub fn get_all() -> Vec<Comment> {
-    get::get_latest()
+#[async_trait]
+pub trait Database { 
+    fn connect(connection_str: &str) -> Result<Self, Box<dyn Error>>
+    where 
+        // This is added to the connection method to make sure that *Self* is a concrete type, which is required for returning *Self* in the result. Essentially, we do not know the size of Self to place on the stack at runtime.
+        Self: Sized; 
+
+    fn initialize_database(&self) -> Result<(), Box<dyn Error>>;
+
+    // Simple CRUD
+    fn create_comment(&self, comment: Comment) -> Result<(), Box<dyn Error>>;
+    fn read_comment(&self, id: Uuid) -> Result<(), Box<dyn Error>>;
+    fn read_comments(&self, comment: Comment) -> Result<(), Box<dyn Error>>;
+    fn update_comment(&self, comment: Comment) -> Result<(), Box<dyn Error>>;
+    fn delete_comment(&self, comment: Comment) -> Result<(), Box<dyn Error>>;
 }
